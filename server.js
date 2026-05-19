@@ -1,3 +1,4 @@
+import "./config/env.js";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
@@ -9,25 +10,12 @@ import applicationRoutes from "./routes/applicationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import { Server } from "socket.io";
-import multer from "multer";
-import path from "path";
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
+dotenv.config({
+  path: "./.env",
 });
 
-const upload = multer({ storage });
-
-export default upload;
-
-dotenv.config();
-
+console.log("Cloudinary API KEY:", process.env.CLOUDINARY_API_KEY);
 const app = express();
 
 app.use(cors());
