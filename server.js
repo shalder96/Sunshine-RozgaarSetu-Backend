@@ -1,4 +1,3 @@
-import "./config/env.js";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
@@ -10,12 +9,11 @@ import applicationRoutes from "./routes/applicationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import { Server } from "socket.io";
+import multer from "multer";
+import path from "path";
 
-dotenv.config({
-  path: "./.env",
-});
+dotenv.config();
 
-console.log("Cloudinary API KEY:", process.env.CLOUDINARY_API_KEY);
 const app = express();
 
 app.use(cors());
@@ -29,7 +27,6 @@ app.use((req, res, next) => {
   req.io = io;
   next();
 });
-app.use("/uploads", express.static("uploads"));
 
 app.get("/", (req, res) => {
   res.send("API Running...");

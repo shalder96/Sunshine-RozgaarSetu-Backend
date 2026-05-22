@@ -3,11 +3,11 @@ import mongoose from "mongoose";
 import express from "express";
 import Application from "../models/Application.js";
 import authMiddleware from "../middleware/authMiddleware.js";
-import Notification from "../models/Notification.js";
+import { createNotification } from "../utils/createNotification.js";
 
 const router = express.Router();
 
-// Apply for a job
+// APPLY JOB
 router.post("/", authMiddleware, async (req, res) => {
   const { jobId } = req.body;
   const userId = req.user.id;
@@ -20,7 +20,7 @@ router.post("/", authMiddleware, async (req, res) => {
 
     if (existing) {
       return res.status(400).json({
-        message: "You already applied for this job",
+        message: "Already applied",
       });
     }
 
@@ -31,59 +31,14 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const job = await Job.findById(jobId);
 
-    await Notification.create({
-      userId: job.postedBy,
-      text: "You received a new job application",
-    });
-
-    res.json(application);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get applicants for a job
-
-router.get("/job/:jobId", authMiddleware, async (req, res) => {
-  try {
-    const applications = await Application.find({
-      jobId: new mongoose.Types.ObjectId(req.params.jobId),
-    }).populate("workerId", "name phone");
-
-    res.json(applications);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching applicants" });
-  }
-});
-router.post("/", authMiddleware, async (req, res) => {
-  const { jobId } = req.body;
-
-  const userId = req.user.id;
-
-  try {
-    // prevent duplicate apply
-    const existing = await Application.findOne({
-      jobId,
-      workerId: userId,
-    });
-
-    if (existing) {
-      return res.status(400).json({ message: "Already applied" });
-    }
-
-    // create application
-    const application = await Application.create({
-      jobId,
-      workerId: userId,
-    });
-
-    // find job
-    const job = await Job.findById(jobId);
-
-    // 🔥 SEND REAL-TIME NOTIFICATION
-    req.io.to(job.postedBy.toString()).emit("newNotification", {
-      text: "New application received 🚀",
-    });
+    // 🔔 employer notification
+    await createNotification(
+      req.io,
+      job.postedBy,
+      "New application received 🚀",
+      "application",
+      application._id,
+    );
 
     res.json(application);
   } catch (err) {
@@ -92,6 +47,23 @@ router.post("/", authMiddleware, async (req, res) => {
     });
   }
 });
+
+// GET APPLICANTS
+router.get("/job/:jobId", authMiddleware, async (req, res) => {
+  try {
+    const applications = await Application.find({
+      jobId: new mongoose.Types.ObjectId(req.params.jobId),
+    }).populate("workerId", "name phone");
+
+    res.json(applications);
+  } catch (err) {
+    res.status(500).json({
+      message: "Error fetching applicants",
+    });
+  }
+});
+
+// MY APPLICATIONS
 router.get("/my", authMiddleware, async (req, res) => {
   try {
     const applications = await Application.find({
@@ -113,23 +85,24 @@ router.get("/my", authMiddleware, async (req, res) => {
     });
   }
 });
-// Delete an application (withdraw)
+
+// WITHDRAW
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    console.log("PARAM ID:", req.params.id);
-    console.log("USER ID:", req.user.id);
+    const existing = await Application.findById(req.params.id).populate(
+      "jobId",
+    );
 
-    // CHECK BEFORE DELETE
-    const existing = await Application.findById(req.params.id);
-
-    console.log("FOUND APPLICATION:", existing);
+    if (!existing) {
+      return res.status(404).json({
+        message: "Application not found",
+      });
+    }
 
     const deletedApplication = await Application.findOneAndDelete({
       _id: req.params.id,
       workerId: req.user.id,
     });
-
-    console.log("DELETED:", deletedApplication);
 
     if (!deletedApplication) {
       return res.status(404).json({
@@ -137,11 +110,20 @@ router.delete("/:id", authMiddleware, async (req, res) => {
       });
     }
 
+    // 🔔 employer notification
+    await createNotification(
+      req.io,
+      existing.jobId.postedBy,
+      "Worker withdrew application",
+      "withdraw",
+      existing._id,
+    );
+
     res.json({
       message: "Application withdrawn successfully",
     });
   } catch (err) {
-    console.log("DELETE ERROR:", err);
+    console.log(err);
 
     res.status(500).json({
       message: "Error deleting application",
@@ -149,4 +131,54 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// UPDATE STATUS (ACCEPT / REJECT)
+router.put("/:id/status", authMiddleware, async (req, res) => {
+  const { status } = req.body;
+
+  try {
+    const application = await Application.findById(req.params.id)
+      .populate("workerId", "name")
+      .populate("jobId", "title postedBy");
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Application not found",
+      });
+    }
+    // Only employer can update status
+    if (application.jobId.postedBy?.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: "Unauthorized",
+      });
+    }
+    // Can't update if already in desired status
+    if (application.status === status) {
+      return res.status(400).json({
+        message: `Already ${status}`,
+      });
+    }
+
+    application.status = status;
+    await application.save();
+
+    // 🔔 worker notification
+    await createNotification(
+      req.io,
+      application.workerId._id,
+      status === "accepted"
+        ? `🎉 Your application for "${application.jobId.title}" has been accepted`
+        : `Your application for "${application.jobId.title}" was not selected`,
+      status === "accepted" ? "accepted" : "rejected",
+      application._id,
+    );
+
+    res.json(application);
+  } catch (err) {
+    console.log(err);
+
+    res.status(500).json({
+      message: "Error updating status",
+    });
+  }
+});
 export default router;

@@ -7,10 +7,26 @@ const notificationSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
 
     text: {
       type: String,
       required: true,
+    },
+
+    type: {
+      type: String,
+      enum: ["application", "message", "accepted", "rejected", "withdraw"],
+      default: "application",
+    },
+
+    relatedId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
     },
 
     isRead: {
@@ -20,10 +36,12 @@ const notificationSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
+notificationSchema.index({
+  userId: 1,
+  isRead: 1,
+  createdAt: -1,
+});
 
-export default mongoose.model(
-  "Notification",
-  notificationSchema
-);
+export default mongoose.model("Notification", notificationSchema);
