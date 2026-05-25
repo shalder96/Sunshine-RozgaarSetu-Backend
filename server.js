@@ -51,8 +51,9 @@ const server = http.createServer(app);
 // ✅ ATTACH SOCKET
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: ["http://localhost:5173", process.env.CLIENT_URL],
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 // ✅ SOCKET LOGIC
