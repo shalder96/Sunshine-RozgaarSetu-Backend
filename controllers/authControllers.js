@@ -3,27 +3,53 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 // Register
+// Register
 export const register = async (req, res) => {
-  const { name, phone, password, role } = req.body;
+  const { name, email, phone, password, role } = req.body;
 
   try {
-    const existingUser = await User.findOne({ phone });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+    // Duplicate email
+    const existingEmail = await User.findOne({
+      email,
+    });
+
+    if (existingEmail) {
+      return res.status(400).json({
+        message: "Email already registered",
+      });
+    }
+
+    // Duplicate phone
+    const existingPhone = await User.findOne({
+      phone,
+    });
+
+    if (existingPhone) {
+      return res.status(400).json({
+        message: "Phone already registered",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
+      email,
       phone,
       password: hashedPassword,
-      role
+      role,
     });
 
-    res.json(user);
+    res.status(201).json({
+      message: "Registration successful",
+      user,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.log(err);
+
+    res.status(500).json({
+      error: err.message,
+    });
   }
 };
 
@@ -42,11 +68,9 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid password" });
     }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      "secretkey",
-      { expiresIn: "7d" }
-    );
+    const token = jwt.sign({ id: user._id, role: user.role }, "secretkey", {
+      expiresIn: "7d",
+    });
 
     res.json({ token, user });
   } catch (err) {

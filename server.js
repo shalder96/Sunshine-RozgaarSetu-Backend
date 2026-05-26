@@ -1,7 +1,10 @@
+import dotenv from "dotenv";
+dotenv.config();
+
+import path from "path";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import dotenv from "dotenv";
 import http from "http";
 import jobRoutes from "./routes/jobRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -10,9 +13,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import { Server } from "socket.io";
 import multer from "multer";
-import path from "path";
 
-dotenv.config();
 
 const app = express();
 

@@ -1,10 +1,18 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-  name: String,
+  name: { type: String, required: true, trim: true },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
   phone: {
     type: String,
     unique: true,
+    trim: true,
   },
   password: String,
   role: {
@@ -14,6 +22,13 @@ const userSchema = new mongoose.Schema({
   profilePic: {
     type: String,
     default: "",
+  },
+  resetOTP: {
+    type: String,
+  },
+
+  resetOTPExpire: {
+    type: Date,
   },
 });
 
